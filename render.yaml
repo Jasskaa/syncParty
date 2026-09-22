@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: youtube-sync-party-server
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
+    healthCheckPath: /health

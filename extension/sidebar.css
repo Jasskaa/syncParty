@@ -1,0 +1,301 @@
+/* sidebar.css — estilos aislados de la extension YouTube Sync Party.
+   Todo esta bajo el namespace #ysp-root para minimizar colisiones con el
+   CSS nativo de YouTube. Se usan `all: initial` + reset puntual en el root
+   y unidades propias en vez de heredar variables de YouTube. */
+
+#ysp-root, #ysp-root * {
+  box-sizing: border-box;
+}
+
+#ysp-root {
+  --ysp-bg: #0f0f13;
+  --ysp-bg-elevated: #17171d;
+  --ysp-border: #26262e;
+  --ysp-text: #f1f1f3;
+  --ysp-text-dim: #9a9aa5;
+  --ysp-accent: #6c5ce7;
+  --ysp-accent-hover: #5b4bd6;
+  --ysp-green: #2ecc71;
+  --ysp-red: #ff5c5c;
+  --ysp-radius: 10px;
+
+  position: fixed;
+  top: 56px;
+  right: 0;
+  bottom: 0;
+  width: 340px;
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  background: var(--ysp-bg);
+  color: var(--ysp-text);
+  font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+  font-size: 13px;
+  border-left: 1px solid var(--ysp-border);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.35);
+  transition: transform 0.25s ease;
+}
+
+#ysp-root.ysp-collapsed {
+  transform: translateX(100%);
+}
+
+/* Boton flotante para colapsar/expandir */
+#ysp-toggle-btn {
+  position: fixed;
+  top: 50%;
+  right: 340px;
+  transform: translateY(-50%);
+  z-index: 2147483001;
+  width: 28px;
+  height: 56px;
+  background: var(--ysp-accent);
+  border: none;
+  border-radius: 8px 0 0 8px;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: right 0.25s ease, background 0.15s ease;
+}
+
+#ysp-toggle-btn:hover { background: var(--ysp-accent-hover); }
+#ysp-toggle-btn.ysp-collapsed { right: 0; }
+
+/* Header */
+#ysp-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--ysp-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--ysp-bg-elevated);
+}
+
+#ysp-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#ysp-connection-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ysp-text-dim);
+}
+
+#ysp-connection-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ysp-red);
+  transition: background 0.2s ease;
+}
+
+#ysp-connection-dot.ysp-online { background: var(--ysp-green); }
+
+#ysp-user-count {
+  font-size: 11px;
+  color: var(--ysp-text-dim);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+#ysp-user-count:hover { color: var(--ysp-text); }
+
+#ysp-room-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#ysp-room-code {
+  font-family: 'Consolas', monospace;
+  font-weight: 700;
+  letter-spacing: 2px;
+  background: var(--ysp-bg);
+  border: 1px solid var(--ysp-border);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+#ysp-copy-link-btn {
+  background: var(--ysp-accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#ysp-copy-link-btn:hover { background: var(--ysp-accent-hover); }
+
+/* User list drawer */
+#ysp-user-drawer {
+  border-bottom: 1px solid var(--ysp-border);
+  background: var(--ysp-bg-elevated);
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.2s ease;
+}
+
+#ysp-user-drawer.ysp-open { max-height: 200px; overflow-y: auto; }
+
+.ysp-user-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+}
+
+.ysp-user-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ysp-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.ysp-host-badge {
+  font-size: 9px;
+  background: var(--ysp-accent);
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-left: auto;
+}
+
+/* Chat area */
+#ysp-chat-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#ysp-chat-area::-webkit-scrollbar { width: 6px; }
+#ysp-chat-area::-webkit-scrollbar-thumb { background: var(--ysp-border); border-radius: 3px; }
+
+.ysp-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 90%;
+}
+
+.ysp-msg-meta {
+  font-size: 10.5px;
+  color: var(--ysp-text-dim);
+  display: flex;
+  gap: 6px;
+}
+
+.ysp-msg-username { font-weight: 700; color: var(--ysp-accent); }
+
+.ysp-msg-bubble {
+  background: var(--ysp-bg-elevated);
+  border: 1px solid var(--ysp-border);
+  border-radius: var(--ysp-radius);
+  padding: 6px 10px;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.ysp-msg-own { align-self: flex-end; }
+.ysp-msg-own .ysp-msg-bubble { background: var(--ysp-accent); border-color: var(--ysp-accent); }
+
+.ysp-msg-system {
+  align-self: center;
+  font-size: 11px;
+  color: var(--ysp-text-dim);
+  font-style: italic;
+  max-width: 100%;
+  text-align: center;
+}
+
+/* Input box */
+#ysp-input-area {
+  border-top: 1px solid var(--ysp-border);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ysp-bg-elevated);
+}
+
+#ysp-emoji-btn, #ysp-send-btn {
+  background: transparent;
+  border: none;
+  color: var(--ysp-text-dim);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+#ysp-emoji-btn:hover, #ysp-send-btn:hover { color: var(--ysp-text); background: var(--ysp-bg); }
+
+#ysp-chat-input {
+  flex: 1;
+  background: var(--ysp-bg);
+  border: 1px solid var(--ysp-border);
+  border-radius: 16px;
+  padding: 8px 12px;
+  color: var(--ysp-text);
+  font-size: 13px;
+  outline: none;
+}
+
+#ysp-chat-input:focus { border-color: var(--ysp-accent); }
+
+#ysp-send-btn { color: var(--ysp-accent); }
+
+#ysp-emoji-picker {
+  position: absolute;
+  bottom: 54px;
+  right: 12px;
+  background: var(--ysp-bg-elevated);
+  border: 1px solid var(--ysp-border);
+  border-radius: var(--ysp-radius);
+  padding: 8px;
+  display: none;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  width: 220px;
+}
+
+#ysp-emoji-picker.ysp-open { display: grid; }
+
+.ysp-emoji-item {
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.ysp-emoji-item:hover { background: var(--ysp-bg); }
+
+/* Video shift: cuando el sidebar esta abierto, se reserva espacio en la
+   grid principal de YouTube para que el player no quede tapado. */
+html.ysp-sidebar-open ytd-app {
+  margin-right: 340px;
+}

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>YouTube Sync Party</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      width: 300px;
+      margin: 0;
+      padding: 16px;
+      font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+      background: #0f0f13;
+      color: #f1f1f3;
+    }
+    h1 {
+      font-size: 15px;
+      margin: 0 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h1 .dot { width: 8px; height: 8px; border-radius: 50%; background: #6c5ce7; }
+    label { font-size: 12px; color: #a0a0aa; display: block; margin: 10px 0 4px; }
+    input[type="text"] {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #2a2a33;
+      background: #1a1a20;
+      color: #fff;
+      font-size: 13px;
+    }
+    input[type="text"]:focus { outline: 2px solid #6c5ce7; }
+    button {
+      width: 100%;
+      padding: 9px 10px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .btn-primary { background: #6c5ce7; color: #fff; }
+    .btn-primary:hover { background: #5b4bd6; }
+    .btn-secondary { background: #232329; color: #f1f1f3; }
+    .btn-secondary:hover { background: #2d2d35; }
+    .divider { display: flex; align-items: center; gap: 8px; margin: 14px 0; color: #5a5a66; font-size: 11px; }
+    .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #232329; }
+    .status { font-size: 11px; color: #7a7a88; margin-top: 10px; line-height: 1.4; }
+    .status.error { color: #ff6b6b; }
+    #joinCode { text-transform: uppercase; letter-spacing: 2px; }
+  </style>
+</head>
+<body>
+  <h1><span class="dot"></span>YouTube Sync Party</h1>
+
+  <button id="btnCreate" class="btn-primary">Crear Sala</button>
+
+  <div class="divider">O</div>
+
+  <label for="joinCode">Codigo de sala</label>
+  <input id="joinCode" type="text" maxlength="6" placeholder="AB3XZ9" autocomplete="off" />
+  <button id="btnJoin" class="btn-secondary">Unirse</button>
+
+  <div id="status" class="status">Abre un video de YouTube para empezar.</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

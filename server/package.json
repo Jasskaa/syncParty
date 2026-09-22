@@ -1,0 +1,17 @@
+{
+  "name": "youtube-sync-party-server",
+  "version": "1.0.0",
+  "description": "Servidor de sincronizacion en tiempo real para YouTube Sync Party",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
