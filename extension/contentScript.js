@@ -22,7 +22,23 @@
   const RECONNECT_MAX_DELAY_MS = 15000;
   const SEEK_DEBOUNCE_MS = 400;
 
-  const EMOJI_SET = ['😀', '😂', '😍', '👍', '🔥', '🎉', '😢', '😮', '❤️', '👀', '🙌', '💀'];
+  // Stickers: al hacer clic, disparan una animacion a pantalla completa
+  // sincronizada para todos en la sala (no insertan texto en el chat).
+  // family controla que animacion CSS se usa (ver spawnSticker/sidebar.css).
+  const STICKER_DEFS = [
+    { id: 'bomb', emoji: '💣', family: 'explode' },
+    { id: 'confetti', emoji: '🎉', family: 'explode' },
+    { id: 'rose', emoji: '🌹', family: 'float' },
+    { id: 'heart', emoji: '❤️', family: 'float' },
+    { id: 'fire', emoji: '🔥', family: 'flicker' },
+    { id: 'laugh', emoji: '😂', family: 'bounce' },
+    { id: 'clap', emoji: '👏', family: 'bounce' },
+    { id: 'thumbsup', emoji: '👍', family: 'bounce' },
+    { id: 'skull', emoji: '💀', family: 'explode' },
+    { id: 'star', emoji: '⭐', family: 'float' },
+  ];
+  const STICKER_BY_ID = Object.fromEntries(STICKER_DEFS.map((s) => [s.id, s]));
+  const STICKER_DURATION_MS = { explode: 1100, float: 2600, flicker: 1500, bounce: 1400 };
 
   // ---------------------------------------------------------------------
   // Estado global del modulo
@@ -418,6 +434,8 @@
     setTimeout(() => leaveRoom(), 1200);
   });
 
+  on('STICKER', ({ stickerId }) => spawnSticker(stickerId));
+
   on('ERROR', (payload) => {
     console.warn('[YouTube Sync Party]', payload.code, payload.message);
   });
@@ -460,8 +478,8 @@
       <div id="ysp-user-drawer"></div>
       <div id="ysp-chat-area"></div>
       <div id="ysp-input-area">
-        <div id="ysp-emoji-picker"></div>
-        <button id="ysp-emoji-btn" title="Emojis">😊</button>
+        <div id="ysp-sticker-picker"></div>
+        <button id="ysp-sticker-btn" title="Stickers">🎊</button>
         <input id="ysp-chat-input" type="text" placeholder="Escribe un mensaje..." maxlength="500" autocomplete="off" />
         <button id="ysp-send-btn" title="Enviar">➤</button>
       </div>
@@ -499,17 +517,16 @@
       }
     });
 
-    const emojiPicker = document.getElementById('ysp-emoji-picker');
-    emojiPicker.innerHTML = EMOJI_SET.map((e) => `<div class="ysp-emoji-item">${e}</div>`).join('');
-    emojiPicker.addEventListener('click', (e) => {
-      const target = e.target.closest('.ysp-emoji-item');
+    const stickerPicker = document.getElementById('ysp-sticker-picker');
+    stickerPicker.innerHTML = STICKER_DEFS.map((s) => `<div class="ysp-sticker-item" data-sticker-id="${s.id}" title="${s.id}">${s.emoji}</div>`).join('');
+    stickerPicker.addEventListener('click', (e) => {
+      const target = e.target.closest('.ysp-sticker-item');
       if (!target) return;
-      const input = document.getElementById('ysp-chat-input');
-      input.value += target.textContent;
-      input.focus();
+      sendSticker(target.dataset.stickerId);
+      stickerPicker.classList.remove('ysp-open');
     });
-    document.getElementById('ysp-emoji-btn').addEventListener('click', () => {
-      emojiPicker.classList.toggle('ysp-open');
+    document.getElementById('ysp-sticker-btn').addEventListener('click', () => {
+      stickerPicker.classList.toggle('ysp-open');
     });
 
     const input = document.getElementById('ysp-chat-input');
@@ -563,7 +580,7 @@
     if (!text) return;
     wsSend('CHAT_MESSAGE', { text });
     input.value = '';
-    document.getElementById('ysp-emoji-picker')?.classList.remove('ysp-open');
+    document.getElementById('ysp-sticker-picker')?.classList.remove('ysp-open');
   }
 
   function showSidebar() {
@@ -577,6 +594,7 @@
     document.getElementById('ysp-toggle-btn')?.remove();
     document.documentElement.classList.remove('ysp-sidebar-open');
     sidebarBuilt = false;
+    removeStickerOverlay();
   }
 
   function toggleSidebarCollapsed() {
@@ -657,6 +675,60 @@
 
   function pushSystemMessage(text) {
     appendChatMessage({ system: true, text });
+  }
+
+  // ---------------------------------------------------------------------
+  // Stickers: animaciones a pantalla completa (independientes del sidebar,
+  // visibles aunque el chat este colapsado).
+  // ---------------------------------------------------------------------
+
+  function ensureStickerOverlay() {
+    let overlay = document.getElementById('ysp-sticker-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'ysp-sticker-overlay';
+      document.body.appendChild(overlay);
+    }
+    return overlay;
+  }
+
+  function removeStickerOverlay() {
+    document.getElementById('ysp-sticker-overlay')?.remove();
+  }
+
+  function spawnSticker(stickerId) {
+    const def = STICKER_BY_ID[stickerId];
+    if (!def) return;
+
+    const overlay = ensureStickerOverlay();
+    const duration = STICKER_DURATION_MS[def.family] || 1500;
+
+    const main = document.createElement('div');
+    main.className = `ysp-sticker ysp-sticker-${def.family}`;
+    main.textContent = def.emoji;
+    overlay.appendChild(main);
+    setTimeout(() => main.remove(), duration);
+
+    if (def.family === 'explode') {
+      const particleGlyphs = ['✨', '💥', '⭐'];
+      const particleCount = 10;
+      for (let i = 0; i < particleCount; i++) {
+        const angle = (Math.PI * 2 * i) / particleCount + (Math.random() * 0.4 - 0.2);
+        const distance = 110 + Math.random() * 90;
+        const particle = document.createElement('span');
+        particle.className = 'ysp-sticker-particle';
+        particle.textContent = particleGlyphs[i % particleGlyphs.length];
+        particle.style.setProperty('--tx', `${Math.cos(angle) * distance}px`);
+        particle.style.setProperty('--ty', `${Math.sin(angle) * distance}px`);
+        overlay.appendChild(particle);
+        setTimeout(() => particle.remove(), duration);
+      }
+    }
+  }
+
+  function sendSticker(stickerId) {
+    spawnSticker(stickerId); // optimista: se ve al instante, sin esperar la ida y vuelta al servidor
+    wsSend('STICKER', { stickerId });
   }
 
   async function copyInviteLink() {

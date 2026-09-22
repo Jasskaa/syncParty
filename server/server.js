@@ -413,6 +413,23 @@ function handleUpdateProfile(ws, payload) {
   broadcastUserList(room);
 }
 
+function handleSticker(ws, payload) {
+  const meta = connMeta.get(ws);
+  if (!meta) return sendError(ws, 'NOT_IN_ROOM', 'No perteneces a ninguna sala.');
+
+  const room = store.get(meta.roomId);
+  if (!room) return sendError(ws, 'ROOM_NOT_FOUND', 'La sala ya no existe.');
+
+  const { stickerId } = payload || {};
+  if (typeof stickerId !== 'string' || !stickerId || stickerId.length > 32) {
+    return sendError(ws, 'INVALID_PAYLOAD', 'stickerId invalido.');
+  }
+
+  // El emisor ya reproduce la animacion localmente al hacer clic (sin esperar
+  // el viaje de ida y vuelta), asi que solo se reenvia al resto de la sala.
+  broadcast(room, 'STICKER', { stickerId, userId: meta.userId }, { excludeUserId: meta.userId });
+}
+
 function handleLeaveRoom(ws) {
   const meta = connMeta.get(ws);
   if (!meta) return;
@@ -473,6 +490,7 @@ wss.on('connection', (ws) => {
       case 'KICK_USER': return handleKickUser(ws, msg.payload);
       case 'SET_USER_CONTROL': return handleSetUserControl(ws, msg.payload);
       case 'UPDATE_PROFILE': return handleUpdateProfile(ws, msg.payload);
+      case 'STICKER': return handleSticker(ws, msg.payload);
       case 'LEAVE_ROOM': return handleLeaveRoom(ws);
       case 'PING': return send(ws, 'PONG', {});
       default:
