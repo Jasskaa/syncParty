@@ -49,11 +49,23 @@
 
     sidebarCollapsed: false,
     userDrawerOpen: false,
+    myCanControl: true, // reflejado por el servidor en cada USER_LIST; false si el host me quito el permiso
   };
 
   // ---------------------------------------------------------------------
   // Utilidades
   // ---------------------------------------------------------------------
+
+  // Genera un color estable (mismo para todos los clientes) a partir del userId,
+  // usado para diferenciar avatares/nombres de usuarios distintos en el chat.
+  function colorForUserId(userId) {
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      hash = (hash * 31 + userId.charCodeAt(i)) >>> 0;
+    }
+    const hue = hash % 360;
+    return `hsl(${hue} 70% 60%)`;
+  }
 
   function getCurrentVideoId() {
     try {
@@ -203,8 +215,7 @@
   }
 
   function canLocalUserControl() {
-    if (!state.hostOnlyControl) return true;
-    return state.sessionId === state.hostUserId;
+    return state.myCanControl;
   }
 
   let lastKnownGoodTime = 0;
@@ -317,12 +328,18 @@
     });
   }
 
+  function updateMyCanControl(users) {
+    const me = users.find((u) => u.userId === state.sessionId);
+    state.myCanControl = me ? !!me.canControl : true;
+  }
+
   function applyRoomState(payload) {
     state.roomId = payload.roomId;
     state.hostUserId = payload.hostUserId;
     state.hostOnlyControl = payload.hostOnlyControl;
     state.users = payload.users;
     state.lastKnownVideoId = payload.videoId;
+    updateMyCanControl(payload.users);
 
     ensureSidebar();
     showSidebar();
@@ -386,6 +403,7 @@
   on('USER_LIST', ({ users, hostUserId }) => {
     state.users = users;
     state.hostUserId = hostUserId;
+    updateMyCanControl(users);
     renderUserList();
     renderHeader();
   });
@@ -393,6 +411,11 @@
   on('ROOM_SETTINGS_UPDATED', ({ hostOnlyControl }) => {
     state.hostOnlyControl = hostOnlyControl;
     pushSystemMessage(hostOnlyControl ? 'Solo el host puede controlar la reproduccion.' : 'Todos pueden controlar la reproduccion.');
+  });
+
+  on('KICKED', () => {
+    pushSystemMessage('Has sido expulsado de la sala por el host.');
+    setTimeout(() => leaveRoom(), 1200);
   });
 
   on('ERROR', (payload) => {
@@ -418,17 +441,25 @@
             <span id="ysp-connection-dot"></span>
             <span id="ysp-connection-label">Conectando...</span>
           </div>
-          <div id="ysp-user-count" title="Ver participantes">👥 <span id="ysp-user-count-num">0</span></div>
+          <button id="ysp-leave-btn" title="Salir de la sala">✕</button>
         </div>
         <div id="ysp-room-row">
+          <span id="ysp-room-label">SALA</span>
           <span id="ysp-room-code">------</span>
           <button id="ysp-copy-link-btn">Copiar enlace</button>
-          <button id="ysp-leave-btn" title="Salir de la sala" style="margin-left:auto;background:transparent;border:none;color:var(--ysp-text-dim);cursor:pointer;font-size:16px;">✕</button>
+        </div>
+        <div id="ysp-profile-row">
+          <div id="ysp-my-avatar" class="ysp-avatar"></div>
+          <span id="ysp-my-name"></span>
+          <button id="ysp-edit-name-btn" title="Cambiar tu nombre">✏️</button>
+          <button id="ysp-user-count" title="Ver participantes">
+            <span class="ysp-user-count-icon">👥</span><span id="ysp-user-count-num">0</span>
+          </button>
         </div>
       </div>
       <div id="ysp-user-drawer"></div>
       <div id="ysp-chat-area"></div>
-      <div id="ysp-input-area" style="position:relative;">
+      <div id="ysp-input-area">
         <div id="ysp-emoji-picker"></div>
         <button id="ysp-emoji-btn" title="Emojis">😊</button>
         <input id="ysp-chat-input" type="text" placeholder="Escribe un mensaje..." maxlength="500" autocomplete="off" />
@@ -450,6 +481,23 @@
       if (confirm('¿Salir de la sala?')) leaveRoom();
     });
     document.getElementById('ysp-user-count').addEventListener('click', toggleUserDrawer);
+    document.getElementById('ysp-edit-name-btn').addEventListener('click', beginEditMyName);
+
+    document.getElementById('ysp-user-drawer').addEventListener('click', (e) => {
+      const kickBtn = e.target.closest('.ysp-kick-btn');
+      const toggleBtn2 = e.target.closest('.ysp-toggle-control-btn');
+      if (kickBtn) {
+        const targetUserId = kickBtn.dataset.target;
+        const targetUser = state.users.find((u) => u.userId === targetUserId);
+        if (targetUser && confirm(`¿Expulsar a ${targetUser.username} de la sala?`)) {
+          wsSend('KICK_USER', { targetUserId });
+        }
+      } else if (toggleBtn2) {
+        const targetUserId = toggleBtn2.dataset.target;
+        const currentlyCan = toggleBtn2.dataset.canControl === 'true';
+        wsSend('SET_USER_CONTROL', { targetUserId, canControl: !currentlyCan });
+      }
+    });
 
     const emojiPicker = document.getElementById('ysp-emoji-picker');
     emojiPicker.innerHTML = EMOJI_SET.map((e) => `<div class="ysp-emoji-item">${e}</div>`).join('');
@@ -469,6 +517,45 @@
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') sendChatFromInput(input);
     });
+
+    renderMyProfile();
+  }
+
+  function renderMyProfile() {
+    const avatarEl = document.getElementById('ysp-my-avatar');
+    const nameEl = document.getElementById('ysp-my-name');
+    if (!avatarEl || !nameEl || !state.identity) return;
+    const color = colorForUserId(state.sessionId);
+    avatarEl.style.setProperty('--u-color', color);
+    avatarEl.textContent = (state.identity.username || '?').slice(0, 1).toUpperCase();
+    nameEl.textContent = state.identity.username || '';
+  }
+
+  function beginEditMyName() {
+    const nameEl = document.getElementById('ysp-my-name');
+    if (!nameEl || nameEl.querySelector('input')) return;
+
+    const currentName = state.identity?.username || '';
+    nameEl.innerHTML = `<input id="ysp-name-input" type="text" maxlength="24" value="${escapeHtml(currentName)}" />`;
+    const input = document.getElementById('ysp-name-input');
+    input.focus();
+    input.select();
+
+    const commit = async () => {
+      const newName = input.value.trim().slice(0, 24) || currentName;
+      if (newName !== currentName) {
+        state.identity.username = newName;
+        await sendRuntimeMessage('UPDATE_IDENTITY', { username: newName });
+        if (state.roomId) wsSend('UPDATE_PROFILE', { username: newName });
+      }
+      renderMyProfile();
+    };
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') input.blur();
+      if (e.key === 'Escape') { renderMyProfile(); }
+    });
+    input.addEventListener('blur', commit, { once: true });
   }
 
   function sendChatFromInput(input) {
@@ -518,13 +605,27 @@
   function renderUserList() {
     const drawer = document.getElementById('ysp-user-drawer');
     if (!drawer) return;
-    drawer.innerHTML = state.users.map((u) => `
-      <div class="ysp-user-row">
-        <div class="ysp-user-avatar">${escapeHtml((u.username || '?').slice(0, 1).toUpperCase())}</div>
-        <span>${escapeHtml(u.username)}</span>
-        ${u.userId === state.hostUserId ? '<span class="ysp-host-badge">HOST</span>' : ''}
-      </div>
-    `).join('');
+    const amHost = state.sessionId === state.hostUserId;
+
+    drawer.innerHTML = state.users.map((u) => {
+      const isHost = u.userId === state.hostUserId;
+      const color = colorForUserId(u.userId);
+      const showHostActions = amHost && !isHost;
+      return `
+        <div class="ysp-user-row">
+          <div class="ysp-avatar" style="--u-color:${color}">${escapeHtml((u.username || '?').slice(0, 1).toUpperCase())}</div>
+          <div class="ysp-user-info">
+            <span class="ysp-user-name">${escapeHtml(u.username)}</span>
+            ${isHost ? '<span class="ysp-host-badge">HOST</span>' : ''}
+            ${!isHost && !u.canControl ? '<span class="ysp-muted-badge" title="Sin permiso de reproduccion">Sin control</span>' : ''}
+          </div>
+          ${showHostActions ? `
+            <button class="ysp-user-action ysp-toggle-control-btn" data-target="${u.userId}" data-can-control="${u.canControl}" title="${u.canControl ? 'Quitar permiso de reproduccion' : 'Dar permiso de reproduccion'}">${u.canControl ? '🔓' : '🔒'}</button>
+            <button class="ysp-user-action ysp-kick-btn" data-target="${u.userId}" title="Expulsar de la sala">⛔</button>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
   }
 
   function appendChatMessage(payload) {
@@ -534,17 +635,19 @@
     const el = document.createElement('div');
 
     if (payload.system) {
-      el.className = 'ysp-msg ysp-msg-system';
+      el.className = 'ysp-msg-row ysp-msg-system';
       el.textContent = payload.text;
     } else {
       const isOwn = payload.userId === state.sessionId;
-      el.className = `ysp-msg${isOwn ? ' ysp-msg-own' : ''}`;
+      const color = colorForUserId(payload.userId);
+      const time = new Date(payload.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      el.className = `ysp-msg-row${isOwn ? ' ysp-msg-own' : ''}`;
       el.innerHTML = `
-        <div class="ysp-msg-meta">
-          <span class="ysp-msg-username">${escapeHtml(payload.username)}</span>
-          <span>${new Date(payload.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        ${!isOwn ? `<div class="ysp-avatar ysp-msg-avatar" style="--u-color:${color}">${escapeHtml((payload.username || '?').slice(0, 1).toUpperCase())}</div>` : ''}
+        <div class="ysp-msg-content">
+          ${!isOwn ? `<div class="ysp-msg-meta"><span class="ysp-msg-username" style="color:${color}">${escapeHtml(payload.username)}</span></div>` : ''}
+          <div class="ysp-msg-bubble">${escapeHtml(payload.text)}<span class="ysp-msg-time">${time}</span></div>
         </div>
-        <div class="ysp-msg-bubble">${escapeHtml(payload.text)}</div>
       `;
     }
 

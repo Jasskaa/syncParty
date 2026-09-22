@@ -95,6 +95,8 @@ class Room {
 
     /** @type {Map<string, {userId:string, username:string, avatar:string, ws:import('ws').WebSocket, isHost:boolean}>} */
     this.users = new Map();
+    /** @type {Set<string>} usuarios a los que el host les quito individualmente el permiso de play/pausa/seek */
+    this.controlRevokedUserIds = new Set();
 
     this.videoId = options.videoId || null;
     this.currentTime = options.currentTime || 0;
@@ -122,6 +124,7 @@ class Room {
       username: u.username,
       avatar: u.avatar,
       isHost: u.userId === this.hostUserId,
+      canControl: this.canControl(u.userId),
     }));
   }
 
@@ -142,8 +145,9 @@ class Room {
   }
 
   canControl(userId) {
-    if (!this.hostOnlyControl) return true;
-    return userId === this.hostUserId;
+    if (userId === this.hostUserId) return true;
+    if (this.hostOnlyControl) return false;
+    return !this.controlRevokedUserIds.has(userId);
   }
 
   isEmpty() {
@@ -344,6 +348,71 @@ function handleSetHostOnlyControl(ws, payload) {
   broadcast(room, 'ROOM_SETTINGS_UPDATED', { hostOnlyControl: room.hostOnlyControl });
 }
 
+function handleKickUser(ws, payload) {
+  const meta = connMeta.get(ws);
+  if (!meta) return sendError(ws, 'NOT_IN_ROOM', 'No perteneces a ninguna sala.');
+
+  const room = store.get(meta.roomId);
+  if (!room) return sendError(ws, 'ROOM_NOT_FOUND', 'La sala ya no existe.');
+
+  if (meta.userId !== room.hostUserId) {
+    return sendError(ws, 'FORBIDDEN', 'Solo el host puede expulsar usuarios.');
+  }
+
+  const { targetUserId } = payload || {};
+  const target = targetUserId && targetUserId !== room.hostUserId ? room.users.get(targetUserId) : null;
+  if (!target) return sendError(ws, 'INVALID_PAYLOAD', 'Usuario invalido.');
+
+  send(target.ws, 'KICKED', {});
+  connMeta.delete(target.ws);
+  removeUserFromRoom(room.roomId, targetUserId, { reason: 'kicked' });
+  target.ws.close();
+}
+
+function handleSetUserControl(ws, payload) {
+  const meta = connMeta.get(ws);
+  if (!meta) return sendError(ws, 'NOT_IN_ROOM', 'No perteneces a ninguna sala.');
+
+  const room = store.get(meta.roomId);
+  if (!room) return sendError(ws, 'ROOM_NOT_FOUND', 'La sala ya no existe.');
+
+  if (meta.userId !== room.hostUserId) {
+    return sendError(ws, 'FORBIDDEN', 'Solo el host puede cambiar permisos de reproduccion.');
+  }
+
+  const { targetUserId, canControl } = payload || {};
+  const target = targetUserId && targetUserId !== room.hostUserId ? room.users.get(targetUserId) : null;
+  if (!target) return sendError(ws, 'INVALID_PAYLOAD', 'Usuario invalido.');
+
+  if (canControl) room.controlRevokedUserIds.delete(targetUserId);
+  else room.controlRevokedUserIds.add(targetUserId);
+
+  broadcastSystemMessage(room, canControl
+    ? `El host le devolvio el control de reproduccion a ${target.username}.`
+    : `El host le quito el control de reproduccion a ${target.username}.`);
+  broadcastUserList(room);
+}
+
+function handleUpdateProfile(ws, payload) {
+  const meta = connMeta.get(ws);
+  if (!meta) return sendError(ws, 'NOT_IN_ROOM', 'No perteneces a ninguna sala.');
+
+  const room = store.get(meta.roomId);
+  if (!room) return sendError(ws, 'ROOM_NOT_FOUND', 'La sala ya no existe.');
+
+  const user = room.users.get(meta.userId);
+  if (!user) return;
+
+  const { username } = payload || {};
+  const trimmed = typeof username === 'string' ? username.trim().slice(0, 24) : '';
+  if (!trimmed || trimmed === user.username) return;
+
+  const oldName = user.username;
+  user.username = trimmed;
+  broadcastSystemMessage(room, `${oldName} ahora se llama ${trimmed}.`);
+  broadcastUserList(room);
+}
+
 function handleLeaveRoom(ws) {
   const meta = connMeta.get(ws);
   if (!meta) return;
@@ -351,15 +420,18 @@ function handleLeaveRoom(ws) {
   connMeta.delete(ws);
 }
 
-function removeUserFromRoom(roomId, userId) {
+function removeUserFromRoom(roomId, userId, { reason = 'left' } = {}) {
   const room = store.get(roomId);
   if (!room) return;
 
   const user = room.users.get(userId);
   room.users.delete(userId);
+  room.controlRevokedUserIds.delete(userId);
 
   if (user) {
-    broadcastSystemMessage(room, `${user.username} salio de la sala.`);
+    broadcastSystemMessage(room, reason === 'kicked'
+      ? `${user.username} fue expulsado de la sala.`
+      : `${user.username} salio de la sala.`);
     broadcast(room, 'USER_LEFT', { userId, username: user.username });
   }
 
@@ -398,6 +470,9 @@ wss.on('connection', (ws) => {
       case 'CHANGE_VIDEO': return handleChangeVideo(ws, msg.payload);
       case 'CHAT_MESSAGE': return handleChatMessage(ws, msg.payload);
       case 'SET_HOST_ONLY_CONTROL': return handleSetHostOnlyControl(ws, msg.payload);
+      case 'KICK_USER': return handleKickUser(ws, msg.payload);
+      case 'SET_USER_CONTROL': return handleSetUserControl(ws, msg.payload);
+      case 'UPDATE_PROFILE': return handleUpdateProfile(ws, msg.payload);
       case 'LEAVE_ROOM': return handleLeaveRoom(ws);
       case 'PING': return send(ws, 'PONG', {});
       default:

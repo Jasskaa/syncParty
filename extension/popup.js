@@ -9,6 +9,12 @@ const statusEl = document.getElementById('status');
 const btnCreate = document.getElementById('btnCreate');
 const btnJoin = document.getElementById('btnJoin');
 const joinCodeInput = document.getElementById('joinCode');
+const nameInput = document.getElementById('nameInput');
+const profileAvatar = document.getElementById('profile-avatar');
+
+function updateAvatarFromName(name) {
+  profileAvatar.textContent = (name || '?').trim().slice(0, 1).toUpperCase() || '?';
+}
 
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
@@ -99,9 +105,26 @@ joinCodeInput.addEventListener('input', () => {
   joinCodeInput.value = joinCodeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
 });
 
+nameInput.addEventListener('input', () => updateAvatarFromName(nameInput.value));
+
+nameInput.addEventListener('blur', async () => {
+  const newName = nameInput.value.trim().slice(0, 24);
+  if (!newName) return;
+  await chrome.runtime.sendMessage({ type: 'UPDATE_IDENTITY', payload: { username: newName } });
+});
+
+nameInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') nameInput.blur();
+});
+
 (async function init() {
   const tab = await getActiveTab();
   const session = await chrome.runtime.sendMessage({ type: 'GET_SESSION' });
+
+  const identityRes = await chrome.runtime.sendMessage({ type: 'GET_IDENTITY' });
+  const currentName = identityRes?.identity?.username || '';
+  nameInput.value = currentName;
+  updateAvatarFromName(currentName);
 
   // La sesion guardada en background puede quedar obsoleta si la pestaña que
   // la creo se recargo o navego (el content script pierde su estado en

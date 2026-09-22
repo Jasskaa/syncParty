@@ -4,64 +4,143 @@
   <meta charset="UTF-8" />
   <title>YouTube Sync Party</title>
   <style>
-    :root { color-scheme: dark; }
+    :root {
+      color-scheme: dark;
+      --bg: #0d0d12;
+      --bg-elevated: #16161d;
+      --border: #26262f;
+      --text: #f2f2f5;
+      --text-dim: #92929e;
+      --accent: #7c5cff;
+      --accent-2: #5b8cff;
+      --accent-hover: #6a4ce0;
+      --radius: 12px;
+    }
     * { box-sizing: border-box; }
     body {
-      width: 300px;
+      width: 320px;
       margin: 0;
-      padding: 16px;
+      padding: 18px;
       font-family: 'Segoe UI', Roboto, Arial, sans-serif;
-      background: #0f0f13;
-      color: #f1f1f3;
+      background: var(--bg);
+      color: var(--text);
     }
-    h1 {
-      font-size: 15px;
-      margin: 0 0 12px;
+    #brand {
       display: flex;
       align-items: center;
       gap: 8px;
+      margin-bottom: 16px;
     }
-    h1 .dot { width: 8px; height: 8px; border-radius: 50%; background: #6c5ce7; }
-    label { font-size: 12px; color: #a0a0aa; display: block; margin: 10px 0 4px; }
-    input[type="text"] {
-      width: 100%;
-      padding: 8px 10px;
-      border-radius: 8px;
-      border: 1px solid #2a2a33;
-      background: #1a1a20;
+    #brand-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 0 8px var(--accent);
+    }
+    #brand-name { font-size: 14px; font-weight: 700; letter-spacing: 0.2px; }
+
+    #profile-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      margin-bottom: 16px;
+    }
+    #profile-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      flex-shrink: 0;
       color: #fff;
-      font-size: 13px;
     }
-    input[type="text"]:focus { outline: 2px solid #6c5ce7; }
+    #profile-fields { flex: 1; min-width: 0; }
+    #profile-fields label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.4px; }
+    #nameInput {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid transparent;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 2px 0;
+      outline: none;
+    }
+    #nameInput:focus { border-bottom-color: var(--accent); }
+
     button {
       width: 100%;
-      padding: 9px 10px;
-      border-radius: 8px;
+      padding: 10px 12px;
+      border-radius: var(--radius);
       border: none;
       font-weight: 600;
       font-size: 13px;
       cursor: pointer;
       margin-top: 10px;
+      transition: transform 0.1s ease, background 0.15s ease, opacity 0.15s ease;
     }
-    .btn-primary { background: #6c5ce7; color: #fff; }
-    .btn-primary:hover { background: #5b4bd6; }
-    .btn-secondary { background: #232329; color: #f1f1f3; }
-    .btn-secondary:hover { background: #2d2d35; }
-    .divider { display: flex; align-items: center; gap: 8px; margin: 14px 0; color: #5a5a66; font-size: 11px; }
-    .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #232329; }
-    .status { font-size: 11px; color: #7a7a88; margin-top: 10px; line-height: 1.4; }
-    .status.error { color: #ff6b6b; }
-    #joinCode { text-transform: uppercase; letter-spacing: 2px; }
+    button:active { transform: scale(0.98); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+    .btn-secondary { background: var(--bg-elevated); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover:not(:disabled) { background: #1d1d26; }
+
+    .divider { display: flex; align-items: center; gap: 8px; margin: 16px 0; color: #55555f; font-size: 10px; letter-spacing: 0.5px; }
+    .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+    label.field-label { font-size: 11px; color: var(--text-dim); display: block; margin: 0 0 6px; }
+    input#joinCode {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      color: #fff;
+      font-size: 15px;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      text-align: center;
+      font-weight: 700;
+    }
+    input#joinCode:focus { outline: none; border-color: var(--accent); }
+
+    .status { font-size: 11px; color: var(--text-dim); margin-top: 14px; line-height: 1.5; text-align: center; }
+    .status.error { color: #ff7a7a; }
   </style>
 </head>
 <body>
-  <h1><span class="dot"></span>YouTube Sync Party</h1>
+  <div id="brand">
+    <span id="brand-dot"></span>
+    <span id="brand-name">YouTube Sync Party</span>
+  </div>
 
-  <button id="btnCreate" class="btn-primary">Crear Sala</button>
+  <div id="profile-card">
+    <div id="profile-avatar">?</div>
+    <div id="profile-fields">
+      <label for="nameInput">Tu nombre</label>
+      <input id="nameInput" type="text" maxlength="24" autocomplete="off" placeholder="Tu nombre" />
+    </div>
+  </div>
 
-  <div class="divider">O</div>
+  <button id="btnCreate" class="btn-primary">▶ Crear Sala</button>
 
-  <label for="joinCode">Codigo de sala</label>
+  <div class="divider">O UNIRTE A UNA</div>
+
+  <label class="field-label" for="joinCode">Codigo de sala</label>
   <input id="joinCode" type="text" maxlength="6" placeholder="AB3XZ9" autocomplete="off" />
   <button id="btnJoin" class="btn-secondary">Unirse</button>
 
