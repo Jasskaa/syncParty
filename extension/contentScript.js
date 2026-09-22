@@ -362,6 +362,13 @@
 
   on('SYNC_ACTION', (payload) => applyRemoteSync(payload));
 
+  // Correccion periodica de deriva: el servidor manda su posicion autoritativa
+  // cada pocos segundos. Reutiliza el mismo umbral de 1.5s, asi que en el caso
+  // normal no hace nada; solo actua si alguien se atraso (p.ej. por un anuncio).
+  on('HEARTBEAT_SYNC', (payload) => {
+    applyRemoteSync({ type: payload.playerState === 'playing' ? 'PLAY' : 'PAUSE', time: payload.time });
+  });
+
   on('CHANGE_VIDEO', (payload) => {
     state.isRemoteNavigation = true;
     state.lastKnownVideoId = payload.videoId;

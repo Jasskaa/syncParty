@@ -14,7 +14,7 @@
 // URL del servidor de sincronizacion. Debe usar wss:// (TLS) para funcionar
 // entre dos redes distintas (Chrome bloquea ws:// sin cifrar desde una
 // extension hacia un host remoto que no sea localhost).
-const DEFAULT_SERVER_URL = 'wss://REEMPLAZAR-CON-TU-URL.onrender.com';
+const DEFAULT_SERVER_URL = 'wss://youtube-sync-party-server.onrender.com';
 const STORAGE_KEYS = {
   IDENTITY: 'ysp_identity',
   SETTINGS: 'ysp_settings',

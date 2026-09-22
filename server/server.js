@@ -15,6 +15,7 @@ const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 8787;
 const HEARTBEAT_INTERVAL_MS = 30000;
+const DRIFT_SYNC_INTERVAL_MS = 5000; // re-alinea clientes que se atrasaron (p.ej. por un anuncio) sin esperar a la proxima accion de play/pausa/seek
 const ROOM_ID_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0/O/1/I para evitar confusion
 const ROOM_ID_LENGTH = 6;
 const ROOM_TTL_EMPTY_MS = 5 * 60 * 1000; // salas vacias se limpian tras 5 min
@@ -431,8 +432,19 @@ const roomReaper = setInterval(() => {
   }
 }, 60000);
 
+// Corrige deriva entre clientes (p.ej. uno ve un anuncio y el otro no) sin
+// depender de que alguien vuelva a tocar play/pausa/seek. Solo tiene sentido
+// mientras el video esta reproduciendose; en pausa no hay deriva que corregir.
+const driftSync = setInterval(() => {
+  for (const room of store.rooms.values()) {
+    if (room.playerState !== 'playing' || room.isEmpty()) continue;
+    broadcast(room, 'HEARTBEAT_SYNC', { time: room.getInterpolatedTime(), playerState: room.playerState });
+  }
+}, DRIFT_SYNC_INTERVAL_MS);
+
 wss.on('close', () => {
   clearInterval(heartbeat);
+  clearInterval(driftSync);
   clearInterval(roomReaper);
 });
 
@@ -442,6 +454,7 @@ httpServer.listen(PORT, () => {
 
 process.on('SIGTERM', () => {
   clearInterval(heartbeat);
+  clearInterval(driftSync);
   clearInterval(roomReaper);
   httpServer.close(() => process.exit(0));
 });
